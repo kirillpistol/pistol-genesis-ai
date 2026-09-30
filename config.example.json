@@ -1,0 +1,20 @@
+{
+  "project": "PISTOL GENESIS",
+  "inventory_sources": [
+    {
+      "url": "https://010101/inventory.json"
+    }
+  ],
+  "updated_at": "010101",
+  "servers": [
+    {
+      "name": "010101",
+      "host": "010101",
+      "worker_url": "https://010101:8443",
+      "backend": "cuda",
+      "allocatable_vram_mb": 0,
+      "available_task_slots": 0,
+      "enabled": false
+    }
+  ]
+}
