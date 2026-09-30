@@ -1,17 +1,13 @@
 # PISTOL GENESIS AI
 
-Level 1 infrastructure prototype: a lightweight scheduler and read-only inventory loader for explicitly configured servers.
+Level 1 infrastructure prototype: a lightweight scheduler and read-only inventory loader for configured servers.
 
 ## Requirements and quick start
-
-Python 3.10 or newer. No third-party dependencies.
 
 ```bash
 python genesis_core.py
 python -m unittest discover -s tests -v
 ```
-
-The demonstration runs a local CPU operation. Registered memory is an accounting budget, not an actual hardware allocation. A selected server name does not cause remote execution: the supplied callback executes locally.
 
 ## Three levels
 
