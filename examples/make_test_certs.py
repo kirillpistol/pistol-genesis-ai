@@ -13,7 +13,7 @@ def generate(directory):
     def run(*args):
         subprocess.run(['openssl',*args],cwd=directory,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
     run('req','-x509','-newkey','rsa:2048','-nodes','-keyout','ca.key','-out','ca.crt','-days','2','-subj','/CN=GENESIS LOCAL TEST CA')
-    for name,usage in [('server','serverAuth'),('client','clientAuth'),('other','clientAuth')]:
+    for name,usage in [('server','serverAuth'),('client','clientAuth'),('other','clientAuth'),('data','clientAuth')]:
         run('req','-newkey','rsa:2048','-nodes','-keyout',name+'.key','-out',name+'.csr','-subj','/CN='+name)
         extensions=f'basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage={usage}\n'
         if name=='server':extensions+='subjectAltName=DNS:localhost\n'
@@ -23,9 +23,10 @@ def generate(directory):
         der=ssl.PEM_cert_to_DER_cert((directory/(name+'.crt')).read_text())
         return hashlib.sha256(der).hexdigest()
     tls=lambda name:dict(ca=str(directory/'ca.crt'),cert=str(directory/(name+'.crt')),key=str(directory/(name+'.key')))
-    (directory/'server.json').write_text(json.dumps(dict(tls=tls('server'),client_pins=[pin('client')]),indent=2))
+    (directory/'server.json').write_text(json.dumps(dict(tls=tls('server'),client_roles={pin('client'):['control'],pin('data'):['data']}),indent=2))
     peers={f'https://localhost:{port}':[pin('server')] for port in (8443,8444)}
     (directory/'client.json').write_text(json.dumps(dict(tls=tls('client'),peers=peers,endpoints=list(peers),timeout_s=3),indent=2))
+    (directory/'data.json').write_text(json.dumps(dict(tls=tls('data'),peers=peers,endpoints=list(peers),timeout_s=3),indent=2))
     for path in directory.glob('*.key'):path.chmod(0o600)
     return directory
 

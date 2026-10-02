@@ -2,6 +2,7 @@
 import hashlib
 import http.client
 import ssl
+from .observability import correlation
 from urllib.parse import urlsplit
 from .contracts import dumps, loads, check
 
@@ -24,6 +25,13 @@ def context(ca,cert,key):
     ctx.load_cert_chain(cert,key)
     return ctx
 
+class PeerError(ValueError):
+    def __init__(self,status,correlation_id=None):
+        super().__init__('Peer rejected request')
+        self.status=status
+        self.correlation_id=correlation_id
+        self.retryable=status in (408,429,500,502,503,504)
+
 class Client:
     def __init__(self, ca, cert, key, peers, timeout=3):
         self.context=context(ca,cert,key)
@@ -31,11 +39,12 @@ class Client:
         if not 0<timeout<=30:
             raise ValueError('Invalid timeout')
         self.timeout=timeout
-    def request(self,url,path,body=None):
+    def request(self,url,path,body=None,correlation_id=None):
+        request_id=correlation(correlation_id)
         host,port=origin(url)
         if (host,port) not in self.peers:
             raise ValueError('Origin not allowlisted')
-        if path not in ('/v1/status','/v1/algorithms/attach','/v1/tasks','/v1/snapshot','/v1/restore'):
+        if path not in RESPONSE_SCHEMAS:
             raise ValueError('Unknown route')
         payload=None if body is None else dumps(body)
         if payload is not None and len(payload)>MAX_BODY:
@@ -47,16 +56,24 @@ class Client:
             if pin not in self.peers[(host,port)]:
                 raise ValueError('Server identity not allowlisted')
             conn.request('GET' if body is None else 'POST',path,body=payload,
-                         headers={'Content-Type':'application/json'})
+                         headers={'Content-Type':'application/json','X-Correlation-ID':request_id})
             response=conn.getresponse()
-            if response.status!=200 or response.getheader('Content-Type')!='application/json':
-                raise ValueError('Peer rejected request; redirects are not followed')
+            if response.status!=200:
+                raise PeerError(response.status,response.getheader('X-Correlation-ID'))
+            if response.getheader('Content-Type')!='application/json':
+                raise ValueError('Expected JSON; redirects are not followed')
             raw=response.read(MAX_BODY+1)
             if len(raw)>MAX_BODY:
                 raise ValueError('Response too large')
             result=loads(raw)
-            schema={'/v1/status':'status','/v1/algorithms/attach':'status','/v1/tasks':'task_response',
-                    '/v1/snapshot':'snapshot','/v1/restore':'status'}[path]
+            schema=RESPONSE_SCHEMAS[path]
             return check(schema,result)
         finally:
             conn.close()
+
+RESPONSE_SCHEMAS={'/v1/status':'status','/v1/algorithms/attach':'status','/v1/tasks':'task_response',
+                  '/v1/snapshot':'snapshot','/v1/restore':'status','/v1/health':'health','/v1/readiness':'readiness'}
+RESPONSE_SCHEMAS.update({'/v1/transfers/'+method:schema for method,schema in {
+    'prepare':'transfer_meta','begin':'transfer_progress','download':'transfer_download',
+    'chunk':'transfer_progress','progress':'transfer_progress','finish':'transfer_progress',
+    'release':'transfer_release','activate':'transfer_progress','cancel':'transfer_progress','abort':'transfer_progress'}.items()})

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:transfer_download",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "transfer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65536
+    },
+    "chunk_base64": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 5500
+    },
+    "next_offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65536
+    }
+  },
+  "required": [
+    "api_version",
+    "transfer_id",
+    "offset",
+    "chunk_base64",
+    "next_offset"
+  ],
+  "additionalProperties": false
+}

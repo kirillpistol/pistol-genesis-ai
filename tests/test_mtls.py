@@ -7,6 +7,7 @@ import urllib.request
 from examples.make_test_certs import generate
 from level1_core.contracts import API_VERSION
 from level1_core.runtime import Core
+from level1_core.transfers import Transfers
 from level1_core.server import Server,server_context
 from level1_core.transport import Client
 from level1_core.discovery import Discovery
@@ -73,7 +74,9 @@ class MTLSIntegrationTests(unittest.TestCase):
             from level2_algorithms.numeric import REGISTRY
         except ImportError:
             self.skipTest('Set PYTHONPATH to genesis-level-2')
-        for server in self.servers:server.core=Core(REGISTRY)
+        for server in self.servers:
+            server.core=Core(REGISTRY)
+            server.transfers=Transfers(server.core)
         for name in ('numeric','evaluator'):
             self.client.request(self.urls[0],'/v1/algorithms/attach',dict(api_version='1.0',name=name))
         for x in (10,20,30):

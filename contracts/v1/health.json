@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:health",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "alive": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "api_version",
+    "alive"
+  ],
+  "additionalProperties": false
+}

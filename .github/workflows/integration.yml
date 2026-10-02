@@ -1,0 +1,67 @@
+name: Three repository v1 contracts
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 6 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: contracts-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_REPO: ${{ github.repository }}
+      SOURCE_SHA: ${{ github.sha }}
+      GENESIS_REQUIRE_E2E: '1'
+    steps:
+      - name: Checkout three current repositories and immutable baselines
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/work" "$GITHUB_WORKSPACE/baseline"
+          for repo in pistol-genesis-ai genesis-level-2 genesis-level-3; do
+            git clone --depth 1 "https://github.com/kirillpistol/$repo.git" "$GITHUB_WORKSPACE/work/$repo"
+          done
+          selected="${SOURCE_REPO##*/}"
+          git -C "$GITHUB_WORKSPACE/work/$selected" fetch --depth 1 origin "$SOURCE_SHA"
+          git -C "$GITHUB_WORKSPACE/work/$selected" checkout --detach "$SOURCE_SHA"
+          python3 - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          workspace=Path(os.environ['GITHUB_WORKSPACE'])
+          baselines=json.loads((workspace/'work/pistol-genesis-ai/ci/baselines.json').read_text())
+          for repo in ('pistol-genesis-ai','genesis-level-2','genesis-level-3'):
+              target=workspace/'baseline'/repo
+              subprocess.run(['git','clone','--no-checkout','https://github.com/kirillpistol/'+repo+'.git',str(target)],check=True)
+              subprocess.run(['git','-C',str(target),'checkout','--detach',baselines[repo]],check=True)
+          PY
+      - name: Full e2e and every repository test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/work/genesis-level-2:$GITHUB_WORKSPACE/work/genesis-level-3"
+          cd "$GITHUB_WORKSPACE/work/pistol-genesis-ai"
+          python3 -m unittest discover -s tests -v
+          cd "$GITHUB_WORKSPACE/work/genesis-level-2"
+          python3 -m unittest discover -s tests -v
+          cd "$GITHUB_WORKSPACE/work/genesis-level-3"
+          python3 -m unittest discover -s tests -v
+      - name: Frozen client against current server and current client against frozen server
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/work/pistol-genesis-ai"
+          for profile in old-client old-server; do
+            python3 ci/compatibility.py --profile "$profile" \
+              --current-core "$GITHUB_WORKSPACE/work/pistol-genesis-ai" \
+              --current-adapter "$GITHUB_WORKSPACE/work/genesis-level-3" \
+              --current-algorithms "$GITHUB_WORKSPACE/work/genesis-level-2" \
+              --baseline-core "$GITHUB_WORKSPACE/baseline/pistol-genesis-ai" \
+              --baseline-adapter "$GITHUB_WORKSPACE/baseline/genesis-level-3" \
+              --baseline-algorithms "$GITHUB_WORKSPACE/baseline/genesis-level-2"
+          done

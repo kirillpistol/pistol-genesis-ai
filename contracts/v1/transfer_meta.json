@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:transfer_meta",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "transfer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_instance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "destination_instance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "checksum": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    },
+    "token_hash": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "api_version",
+    "transfer_id",
+    "source_instance",
+    "destination_instance",
+    "checksum",
+    "size",
+    "token_hash"
+  ],
+  "additionalProperties": false
+}
