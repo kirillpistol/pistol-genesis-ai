@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:task",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "algorithm": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data": {}
+  },
+  "required": [
+    "api_version",
+    "algorithm",
+    "data"
+  ],
+  "additionalProperties": false
+}

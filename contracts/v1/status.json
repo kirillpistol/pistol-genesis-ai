@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:status",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "instance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "running",
+        "paused"
+      ]
+    },
+    "waiting_for": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "uptime_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "completed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "processing_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "completed",
+        "failed",
+        "processing_ms"
+      ],
+      "additionalProperties": false
+    },
+    "algorithms": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "raw_records_retained": {
+      "type": "integer",
+      "const": 0
+    }
+  },
+  "required": [
+    "api_version",
+    "instance",
+    "mode",
+    "waiting_for",
+    "uptime_s",
+    "revision",
+    "metrics",
+    "algorithms",
+    "raw_records_retained"
+  ],
+  "additionalProperties": false
+}

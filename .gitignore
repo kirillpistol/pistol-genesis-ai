@@ -1,10 +1,8 @@
 __pycache__/
-*.py[cod]
-.venv/
+*.pyc
 .env
-.env.*
-config.local.json
-private/
-models/
-*.pem
+.local-certs/
 *.key
+*.pem
+config.local.json
+checkpoint*.json
