@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:binding_passport",
+  "type": "object",
+  "properties": {
+    "binding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "level2_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "algorithm_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "package_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "input_contract": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "level3_manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "allowed_workers": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "binding_id",
+    "level2_id",
+    "algorithm_version",
+    "model_version",
+    "package_sha256",
+    "input_contract",
+    "level3_manifest_id",
+    "data_version",
+    "manifest_sha256",
+    "allowed_workers"
+  ],
+  "additionalProperties": false
+}

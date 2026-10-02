@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:binding_task",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "binding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "input_contract": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "part_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "record_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4096
+    },
+    "data": {}
+  },
+  "required": [
+    "api_version",
+    "binding_id",
+    "manifest_id",
+    "data_version",
+    "manifest_sha256",
+    "input_contract",
+    "source_id",
+    "part_id",
+    "record_index",
+    "data"
+  ],
+  "additionalProperties": false
+}

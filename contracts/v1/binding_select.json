@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:binding_select",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "binding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "api_version",
+    "binding_id"
+  ],
+  "additionalProperties": false
+}

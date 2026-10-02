@@ -77,3 +77,7 @@ RESPONSE_SCHEMAS.update({'/v1/transfers/'+method:schema for method,schema in {
     'prepare':'transfer_meta','begin':'transfer_progress','download':'transfer_download',
     'chunk':'transfer_progress','progress':'transfer_progress','finish':'transfer_progress',
     'release':'transfer_release','activate':'transfer_progress','cancel':'transfer_progress','abort':'transfer_progress'}.items()})
+
+RESPONSE_SCHEMAS.update({'/v1/bindings/select':'binding_status','/v1/bindings/status':'binding_status',
+                         '/v1/bindings/catalog':'binding_catalog','/v1/bindings/tasks':'task_response',
+                         '/v1/bindings/close':'status'})

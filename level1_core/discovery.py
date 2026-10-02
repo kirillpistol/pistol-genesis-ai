@@ -49,6 +49,16 @@ class Discovery:
                     return candidate
             except (OSError,ValueError,http.client.HTTPException):pass
         raise ValueError('No live compatible allowlisted node')
+    def choose_binding(self,binding_id,passport_sha256,exclude=(),active=True):
+        for candidate in self.probe_once():
+            if candidate['endpoint'] in exclude:continue
+            try:
+                catalog=self.client.request(candidate['endpoint'],'/v1/bindings/catalog')
+                for item in catalog['items']:
+                    if item['binding_id']==binding_id and item['passport_sha256']==passport_sha256 and (not active or item['active']):
+                        return dict(candidate,worker_id=catalog['worker_id'])
+            except (OSError,ValueError,http.client.HTTPException):pass
+        raise ValueError('No approved compatible binding worker; no fallback')
     def run(self,stop,on_status=None):
         delay=self.initial
         while not stop.is_set():

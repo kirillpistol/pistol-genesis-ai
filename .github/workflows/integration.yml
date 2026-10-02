@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          export PYTHONPATH="$GITHUB_WORKSPACE/work/genesis-level-2:$GITHUB_WORKSPACE/work/genesis-level-3"
+          export PYTHONPATH="$GITHUB_WORKSPACE/work/pistol-genesis-ai:$GITHUB_WORKSPACE/work/genesis-level-2:$GITHUB_WORKSPACE/work/genesis-level-3"
           cd "$GITHUB_WORKSPACE/work/pistol-genesis-ai"
           python3 -m unittest discover -s tests -v
           cd "$GITHUB_WORKSPACE/work/genesis-level-2"

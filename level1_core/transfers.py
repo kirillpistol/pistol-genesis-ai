@@ -90,10 +90,10 @@ class Transfers:
             raw=bytes(entry['buffer'])
             if len(raw)!=entry['meta']['size'] or hashlib.sha256(raw).hexdigest()!=entry['meta']['checksum']:
                 raise ValueError('Incomplete transfer or checksum mismatch')
-            snapshot=check('snapshot',loads(raw))
+            snapshot=self.core.validate_snapshot(loads(raw))
             if snapshot['handoff_id']!=identifier or snapshot['source_instance']!=entry['meta']['source_instance']:
                 raise ValueError('Snapshot identity mismatch')
-            candidate=Core(self.core.registry)
+            candidate=self.core.fresh_candidate()
             candidate.instance=self.core.instance
             candidate.restore(snapshot)  # validate everything before committing live state
             entry['candidate']=candidate
@@ -117,6 +117,7 @@ class Transfers:
                 raise ValueError('Not ready or invalid release token')
             candidate=entry['candidate']
             self.core.algorithms=candidate.algorithms
+            self.core.binding=candidate.binding
             self.core.revision=candidate.revision
             self.core.metrics=dict(candidate.metrics)
             self.core.restored_digest=candidate.restored_digest

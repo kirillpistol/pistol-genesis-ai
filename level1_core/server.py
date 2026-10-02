@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .contracts import API_VERSION, check, dumps, loads
 from .runtime import Core
 from .transfers import Transfers
+from .bindings import BindingPolicy
 from .observability import correlation, event, configure
 from .transport import MAX_BODY,pins
 
@@ -65,7 +66,7 @@ class Server(ThreadingHTTPServer):
         finally:
             self.slots.release()
 
-SAFE_ROUTES={'/v1/status','/v1/tasks','/v1/algorithms/attach','/v1/snapshot','/v1/restore','/v1/health','/v1/readiness'}|{
+SAFE_ROUTES={'/v1/bindings/select','/v1/bindings/tasks','/v1/bindings/close','/v1/bindings/status','/v1/bindings/catalog','/v1/status','/v1/tasks','/v1/algorithms/attach','/v1/snapshot','/v1/restore','/v1/health','/v1/readiness'}|{
     '/v1/transfers/'+name for name in ('prepare','begin','download','chunk','progress','finish','release','activate','cancel','abort')}
 
 class Handler(BaseHTTPRequestHandler):
@@ -76,10 +77,12 @@ class Handler(BaseHTTPRequestHandler):
         pin=hashlib.sha256(certificate).hexdigest() if certificate else None
         roles=self.server.client_roles.get(pin,set()) if pin else {'control','data'}
         self.audit_roles=sorted(roles)
-        need='data' if self.path=='/v1/tasks' else 'control'
-        if self.path in ('/v1/status','/v1/health','/v1/readiness'):need=None
+        need='data' if self.path in ('/v1/tasks','/v1/bindings/tasks') else 'control'
+        if self.path in ('/v1/status','/v1/health','/v1/readiness','/v1/bindings/status','/v1/bindings/catalog'):need=None
         if need and need not in roles:
             return 403,dict(api_version=API_VERSION,error='Forbidden role')
+        if self.command=='GET' and self.path=='/v1/bindings/status':return 200,core.binding_status(None if 'control' in roles else pin)
+        if self.command=='GET' and self.path=='/v1/bindings/catalog':return 200,core.binding_catalog(None if 'control' in roles else pin)
         if self.command=='GET' and self.path=='/v1/health':
             return 200,check('health',dict(api_version=API_VERSION,alive=True))
         if self.command=='GET' and self.path=='/v1/readiness':
@@ -88,6 +91,7 @@ class Handler(BaseHTTPRequestHandler):
                 return (200 if ready else 503),check('readiness',dict(api_version=API_VERSION,ready=ready,reason='ready' if ready else 'paused_or_no_algorithm'))
         if self.command=='GET' and self.path=='/v1/status':return 200,core.status()
         routes={'/v1/algorithms/attach':'attach','/v1/tasks':'task','/v1/snapshot':'snapshot_request','/v1/restore':'snapshot'}
+        routes.update({'/v1/bindings/select':'binding_select','/v1/bindings/tasks':'binding_task','/v1/bindings/close':'binding_select'})
         routes.update({'/v1/transfers/prepare':'snapshot_request','/v1/transfers/begin':'transfer_meta',
                        '/v1/transfers/download':'transfer_offset','/v1/transfers/chunk':'transfer_chunk',
                        '/v1/transfers/progress':'transfer_id','/v1/transfers/finish':'transfer_id',
@@ -105,6 +109,10 @@ class Handler(BaseHTTPRequestHandler):
         raw=self.rfile.read(size)
         if len(raw)!=size:raise ValueError('Incomplete body')
         body=check(routes[self.path],loads(raw))
+        if core.binding_policy is not None and self.path in ('/v1/snapshot','/v1/restore'):raise ValueError('Strict transfer requires staged binding protocol')
+        if self.path=='/v1/bindings/select':return 200,core.select_binding(body['binding_id'])
+        if self.path=='/v1/bindings/tasks':return 200,core.process_bound(body,pin)
+        if self.path=='/v1/bindings/close':return 200,core.close_binding(body['binding_id'])
         if self.path.startswith('/v1/transfers/'):
             method=self.path.rsplit('/',1)[1];manager=self.server.transfers
             if method=='prepare':result=manager.prepare(body['destination_instance']);schema='transfer_meta'
@@ -127,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
             request_id=correlation(self.headers.get('X-Correlation-ID'))
             code,result=self.dispatch()
             encoded=dumps(result)
+        except PermissionError:
+            code,encoded=403,dumps(dict(api_version=API_VERSION,error='Forbidden binding scope'))
         except (ValueError,KeyError,TypeError,OverflowError,RecursionError):
             code,encoded=400,dumps(dict(api_version=API_VERSION,error='Invalid request, version or state'))
         except TimeoutError:
@@ -163,11 +173,15 @@ def main():
     parser.add_argument('--port',type=int,default=8080)
     parser.add_argument('--tls-config')
     parser.add_argument('--dev-local',action='store_true')
+    parser.add_argument('--binding-policy',help='Trusted local operator policy file')
+    parser.add_argument('--worker-id')
     parser.add_argument('--algorithm-module',help='Explicit trusted installed local module; not downloaded')
     args=parser.parse_args()
-    registry=None
+    registry=None;package_specs={}
     if args.algorithm_module:
-        registry=importlib.import_module(args.algorithm_module).REGISTRY
+        module=importlib.import_module(args.algorithm_module)
+        registry=module.REGISTRY
+        package_specs=getattr(module,'PACKAGE_SPECS',{})
     if args.tls_config:
         with open(args.tls_config,encoding='utf-8') as file:config=json.load(file)
         ctx=server_context(config['tls']);allowed=pins(config['client_pins']) if config.get('client_pins') else None
@@ -175,7 +189,9 @@ def main():
         ctx,allowed=None,None
     configure()
     roles=config.get('client_roles') if args.tls_config else None
-    server=Server((args.host,args.port),Core(registry),ctx,allowed,args.dev_local,roles)
+    policy=BindingPolicy.load(args.binding_policy) if args.binding_policy else None
+    if policy is not None and (not args.tls_config or not args.worker_id):parser.error('Strict bindings require mTLS and worker-id')
+    server=Server((args.host,args.port),Core(registry,policy,package_specs,args.worker_id),ctx,allowed,args.dev_local,roles)
     event('server_started',host=args.host,port=args.port,api_version=API_VERSION,instance=server.core.instance)
     try:server.serve_forever()
     except KeyboardInterrupt:pass

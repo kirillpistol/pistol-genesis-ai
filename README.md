@@ -153,3 +153,49 @@ wire-контракт с numeric, адаптером, snapshot и evaluator.
 Откат выполняйте только до source release. При ошибке после release повторите handoff
 для активации приёмника. Новая передача не подписана цифровой подписью, конфигурация
 сертификатов не обновляется без рестарта, процесс алгоритма пока не изолирован.
+
+## Строгая ручная связка: рабочий локальный тест
+
+Реализована точная привязка **один пакет уровня 2 ↔ один manifest уровня 3**.
+[ADR-0003](docs/adr/0003-manual-bindings.md) описывает контракты и границы доверия.
+Без `--binding-policy` запускается прежний совместимый режим, без строгой привязки.
+Демонстрация использует числа 10,20,30,40 и агрегатор; обученных отраслевых моделей нет.
+
+Клонируйте все три репозитория рядом. Из pistol-genesis-ai (Python 3.10+, openssl):
+
+```sh
+export PYTHONPATH=.:../genesis-level-2:../genesis-level-3
+python -m examples.make_test_certs .local-certs
+python -m examples.make_binding_demo .local-certs .local-bindings
+```
+
+В четырёх терминалах с тем же PYTHONPATH запустите:
+
+```sh
+python -m level3_data.serve_parts --manifest .local-bindings/manifest.json --source-id source-0 --parts-dir .local-bindings --tls-config .local-bindings/source-server.json --port 9443
+python -m level3_data.serve_parts --manifest .local-bindings/manifest.json --source-id source-1 --parts-dir .local-bindings --tls-config .local-bindings/source-server.json --port 9444
+python -m level1_core.server --port 8443 --tls-config .local-certs/server.json --algorithm-module level2_algorithms.bindings_demo --binding-policy .local-bindings/policy.json --worker-id worker-a
+python -m level1_core.server --port 8444 --tls-config .local-certs/server.json --algorithm-module level2_algorithms.bindings_demo --binding-policy .local-bindings/policy.json --worker-id worker-b
+```
+
+Выберите нужную задачу и соберите её части:
+
+```sh
+python -m level1_core.binding_control --config .local-certs/client.json --passport .local-bindings/passport.json --worker-url https://localhost:8443
+python -m level3_data.run_bound --client-config .local-certs/data.json --parts-config .local-bindings/parts-client.json --passport .local-bindings/passport.json --manifest .local-bindings/manifest.json
+python -m level1_core.handoff --config .local-certs/client.json --source https://localhost:8443 --destination https://localhost:8444
+python -m level3_data.run_bound --client-config .local-certs/data.json --parts-config .local-bindings/parts-client.json --passport .local-bindings/passport.json --manifest .local-bindings/manifest.json
+```
+
+Последний numeric result: count=4, mean=25. Повторный сбор после переноса не выдаёт
+новых результатов: cursor уже равен 4. Перенос посередине потока проверяется в
+`tests/test_bound_e2e.py`. После полного выполнения закрывайте связку явно:
+
+```sh
+python -m level1_core.binding_control --config .local-certs/client.json --passport .local-bindings/passport.json --worker-url https://localhost:8444 --close
+```
+
+Для своего сектора вручную замените пакет/веса и PACKAGE_SPECS, manifest частей,
+паспорт и scoped data_grants на обоих workers. Новые версии утверждаются локально;
+автоматической подстановки алгоритма/данных и обучения нет. Генерируемые тестовые
+ключи и данные исключены из Git. PowerShell использует `;` в PYTHONPATH.

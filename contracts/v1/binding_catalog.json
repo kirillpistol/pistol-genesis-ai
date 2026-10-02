@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:genesis:1:binding_catalog",
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "properties": {
+          "binding_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "passport_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "binding_id",
+          "passport_sha256",
+          "active"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "api_version",
+    "worker_id",
+    "items"
+  ],
+  "additionalProperties": false
+}
