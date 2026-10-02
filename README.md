@@ -1,39 +1,106 @@
-# PISTOL GENESIS AI
+# PISTOL GENESIS — уровень 1: автономное переносимое ядро
 
-Level 1 infrastructure prototype: a lightweight scheduler and read-only inventory loader for configured servers.
+## Что реально находится в этом репозитории
 
-## Requirements and quick start
+Текущая GitHub-реализация — локальный планировщик `genesis_core.py` и загрузчик
+инвентаря `inventory.py`. Резервирует заявленные ресурсы в одном процессе,
+возвращает их после выполнения или ошибки и поддерживает drain.
+Не исполняет задания на удалённых узлах и не измеряет/ограничивает реальную память.
 
-```bash
+```sh
 python genesis_core.py
 python -m unittest discover -s tests -v
 ```
 
-## Three levels
+Отдельно подготовленный локальный архив содержит HTTP-прототип, метрики,
+ручной checkpoint/restore и тест переноса между двумя процессами.
+Этот HTTP-код пока НЕ опубликован в данном репозитории; команды
+`python -m level1_core.server` относятся к архиву.
+В архиве прошли 17 тестов; это не подтверждение реализации целевых требований ниже.
 
-1. Core: scheduling, capacity reservations, inventory snapshots, and draining.
-2. Workers: future implementation of authenticated remote execution and capacity reporting.
-3. Algorithms and models: future adapters with explicit resource requirements.
+## Инвентарь текущего кода
 
-## Inventory
+`config.example.json` содержит отключённые placeholders; замените их только для
+явно разрешённых узлов. `inventory.py` читает заданные HTTPS-адреса или локальные
+файлы, проверяет сертификат и актуальность timestamps, запрещает редиректы.
+Не заменяйте активный планировщик новым snapshot: потеряются текущие резервации.
+Несколько планировщиков не координируют резервации.
 
-Copy `config.example.json` to `config.local.json` and replace the `010101` placeholders. The example is disabled and allocates zero task slots. No connection is made by the demonstration.
+## План развития уровня 1
 
-`inventory.py` reads explicitly supplied HTTPS endpoints or local inventory files. HTTPS redirects are disabled; certificate verification remains enabled. Inventory timestamps must be timezone-aware and no older than the configured maximum age. Enabled entries containing placeholders are rejected.
+1. Опубликовать и согласовать HTTP-прототип с текущим планировщиком.
+2. Реализовать цикл проверки доверенного реестра и повторных подключений.
+3. Сделать воспроизводимую сборку для выбранных платформ и защищённую конфигурацию.
+4. Ввести изолированное исполнение алгоритмов и лимиты.
+5. Реализовать управляемый перенос и единственного владельца.
+6. Проверить сбои, безопасность, ресурсы и совместимость.
 
-Inventory imports create a new scheduler snapshot before accepting tasks. Do not replace an active scheduler with a new snapshot: this would discard reservations. Multiple schedulers do not coordinate reservations.
+Автопоиск, автономная упаковка, изоляция и автоматический перенос пока не реализованы.
 
-## Behaviour and limitations
+## Согласованная архитектура
 
-- Thread-safe capacity reservations within one process.
-- Resource release when callbacks complete or raise an exception.
-- Draining stops new assignments and lets existing callbacks finish.
-- No queue: exhausted capacity raises `NoCapacity`.
-- Callback memory requirements are supplied by the caller and are not measured or enforced.
-- The callback must return only when its work finishes; it must not leave background work using the reservation.
-- No remote workers, Remote Desktop automation, GPU discovery, model loading, autoscaling, automatic replication, or persistent task recovery.
-- No passwords, private training materials, model weights, or server credentials belong in this repository.
+| Уровень | Репозиторий | Ответственность |
+|---|---|---|
+| 1 | [pistol-genesis-ai](https://github.com/kirillpistol/pistol-genesis-ai) | Автономное ядро, конфигурация, контроль исполнения, поиск разрешённых серверов, перенос |
+| 2 | [genesis-level-2](https://github.com/kirillpistol/genesis-level-2) | Подключаемые алгоритмы, обучение и переносимое состояние |
+| 3 | [genesis-level-3](https://github.com/kirillpistol/genesis-level-3) | Внешняя информация, источники и адаптеры |
 
-## Validation
+Сервер данных и вычислительный сервер имеют разные роли.
+Доступность сервера не означает разрешение на подключение или запуск.
+Ядро не должно искать произвольные открытые серверы или самостоятельно получать права доступа.
 
-A standard-library unittest suite is included for scheduling, capacity exhaustion, failure cleanup, draining, concurrent reservations, and inventory validation. Tests were not executed in the authoring environment; run the command above before deployment.
+### Целевой автономный пакет уровня 1 — пока требования
+
+Пакет содержит код, закреплённые зависимости, конфигурацию, правила доверия,
+версии протоколов и минимальное переносимое состояние. Полная сборка означает
+воспроизводимый пакет для заявленной платформы; универсального запуска на любом
+оборудовании без совместимой среды не предполагается. Контейнеру нужен runtime;
+самостоятельному исполняемому файлу — совместимая ОС и архитектура.
+
+Конфигурация разделяет разрешённые источники данных и разрешённые вычислительные
+узлы, задаёт интервалы проверки, таймауты, лимиты сообщений, ресурсов и повторов.
+Секреты поступают из среды или отдельного механизма выдачи секретов, не из Git
+и не внутри обычного checkpoint.
+
+Целевой цикл: запуск → проверка конфигурации → поиск в доверенном реестре/списке →
+проверка подлинности → подключение → обработка → повторная проверка доступности.
+При отсутствии подходящих узлов ядро ждёт и повторяет попытки с увеличением
+интервала, верхним пределом и случайным разбросом. Статус сообщает причину ожидания.
+Сетевые ошибки не должны запускать команды, установку пакетов или исполнение ответа сервера.
+
+Перенос: завершить текущую задачу → приостановить источник → передать версионированный
+checkpoint → проверить совместимость → подтвердить восстановление и владение →
+переключить источник данных → завершить исходный процесс.
+Для автоматизации требуется отдельный доверенный агент запуска и протокол единственного
+владельца с защитой от повторного использования передачи. Состояние незавершённого
+стека и GPU-память не входят в переносимый checkpoint.
+
+### Требования к защите — не гарантия отсутствия уязвимостей
+
+Входящие данные — только проверяемые сообщения, без произвольного исполнения кода.
+Нужны проверка идентичности серверов, защищённый транспорт, запрет неразрешённых
+перенаправлений, лимиты размера/вложенности/времени и контроль выхода за допустимые значения.
+Обновления и алгоритмические пакеты устанавливаются отдельным доверенным процессом
+с проверкой подписи, версии и совместимости; данные не могут устанавливать обновления.
+
+Целевой уровень 2 исполняется в отдельной ограниченной среде: минимальные права,
+ограниченные RAM/CPU/время, запрет сети и файлового доступа по умолчанию.
+Обычный отдельный процесс сам по себе не является защитной песочницей:
+изоляция требует механизмов ОС или контейнерного окружения и отдельной проверки.
+Нельзя обещать абсолютную неуязвимость или невозможность заражения.
+
+Сырые записи, ответы и журналы содержимого по умолчанию не сохраняются.
+Сохраняемое по явной политике состояние — агрегаты/веса и контрольные метаданные.
+Веса и агрегаты также могут раскрывать сведения об обучении; их отсутствие в виде
+сырых записей не является гарантией конфиденциальности.
+Нужны ограничения состояния и аудит реализации алгоритма; физическое стирание памяти
+и отсутствие следов в swap/прокси отдельно не гарантируются.
+
+### Проверяемые критерии будущей реализации
+
+- Без серверов: нет аварийного завершения; видны причина ожидания и следующий повтор.
+- Недоверенный сервер: отказ до передачи задач/секретов.
+- Перенос: продолжение с того же завершённого шага, одновременно активен один владелец.
+- Зависший алгоритм: ограниченный срок, прекращение worker-а, ядро остаётся доступным.
+- Вредоносное сообщение: нет команд, установки кода и неограниченного выделения памяти.
+- Метрики: время обработки, ошибки, использование ресурсов, время восстановления и переноса.
