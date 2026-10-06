@@ -229,3 +229,6 @@ MAE/RMSE рассчитываются отдельно Evaluator уровня 2:
 
 Полная проверка сборки: `python test_bundle.py`. Графический E2E и проверки
 ограничений локального API входят в `tests/test_local_panel.py`.
+
+## MESM: муниципальный источник
+Финансовый модуль `level2_algorithms.mesm_budget` и адаптер `level3_data.mesm` подключают планы и отчёты MESM. [Запуск и границы режимов](https://github.com/kirillpistol/MESM/blob/main/docs/37_genesis_connection.md). Ядро и strict binding policy не меняются; локальная сборка запускает отдельный development worker.
